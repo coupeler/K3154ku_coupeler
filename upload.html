@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tambah Data Baru</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui; }
+    body { background: #0f111a; color: #e6e6e6; padding: 30px; max-width: 700px; margin: 0 auto; }
+    h1 { margin-bottom: 15px; }
+    .back-link { display: inline-block; margin-bottom: 20px; color: #3b82f6; text-decoration: none; }
+    .card { background: #1a1d2b; padding: 25px; border-radius: 12px; margin-bottom: 20px; }
+    label { display: block; margin: 15px 0 5px; font-weight: 500; }
+    input { width: 100%; padding: 10px; border: none; border-radius: 6px; background: #2a2f45; color: #fff; }
+    .drop-area { border: 3px dashed #3b82f6; border-radius: 10px; padding: 30px; text-align: center; margin: 15px 0; cursor: pointer; transition: 0.2s; }
+    .drop-area.highlight { border-color: #10b981; background: #1e293b; }
+    button { padding: 12px 25px; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; margin-top: 20px; width: 100%; }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-primary:hover { background: #2563eb; }
+    .status { margin-top: 20px; padding: 15px; border-radius: 8px; display: none; background: #1e293b; }
+    pre { background: #0f172a; padding: 12px; border-radius: 6px; margin-top: 10px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; }
+    .note { color: #9ca3af; font-size: 13px; margin-top: 8px; }
+    .copy-btn { background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 4px; margin-top: 8px; cursor: pointer; width: auto; }
+  </style>
+</head>
+<body>
+
+<a href="index.html" class="back-link">← Kembali ke Grafik</a>
+<h1>➕ Tambah Data Ukuran Baru</h1>
+
+<div class="card">
+  <label>Nama Produk / IEM:</label>
+  <input type="text" id="prodName" placeholder="Contoh: Moondrop Dawn V2">
+
+  <label>File hasil ekspor REW (.txt):</label>
+  <div class="drop-area" id="dropArea">
+    <p>📂 Tarik file .txt ke sini<br>atau klik untuk pilih file</p>
+    <input type="file" id="fileInput" accept=".txt" style="display:none;">
+  </div>
+  
+  <p class="note" id="fileStatus"></p>
+
+  <button class="btn-primary" id="btnGen">🔄 Buat Data JSON</button>
+
+  <div class="status" id="resultBox">
+    <strong>✅ Berhasil dibuat!</strong><br>
+    Salin kode di bawah, lalu:
+    <ol style="margin:10px 0 10px 20px; font-size:14px;">
+      <li>Buka <code>data/index.json</code> di repositori GitHub kamu</li>
+      <li>Klik ikon pensil ✏️ untuk edit</li>
+      <li>Tempel kode di bawah <strong>sebelum</strong> tanda kurung kurawal penutup <code>}</code> paling akhir</li>
+      <li>Jika ada data sebelumnya, tambahkan <code>,</code> di belakang baris terakhir data lama</li>
+      <li>Klik <strong>Commit changes</strong> → selesai!</li>
+    </ol>
+    <button class="copy-btn" onclick="copyCode()">📋 Salin Kode</button>
+    <pre id="jsonCode"></pre>
+  </div>
+</div>
+
+<script>
+let resultText = "";
+const dropArea = document.getElementById("dropArea");
+const fileInput = document.getElementById("fileInput");
+
+["dragenter", "dragover", "dragleave", "drop"].forEach(e => 
+  dropArea.addEventListener(e, ev => ev.preventDefault()));
+["dragenter", "dragover"].forEach(e => 
+  dropArea.addEventListener(e, () => dropArea.classList.add("highlight")));
+["dragleave", "drop"].forEach(e => 
+  dropArea.addEventListener(e, () => dropArea.classList.remove("highlight")));
+
+dropArea.onclick = () => fileInput.click();
+dropArea.ondrop = e => {
+  const f = e.dataTransfer.files[0]; if(f) handleFile(f);
+};
+fileInput.onchange = e => {
+  const f = e.target.files[0]; if(f) handleFile(f);
+};
+
+function handleFile(file) {
+  if(!file.name.endsWith(".txt")) return alert("Pilih file .txt saja");
+  document.getElementById("fileStatus").textContent = `✅ Terbaca: ${file.name}`;
+  
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split("\n");
+    const freq = [], spl = [];
+    
+    for(const line of lines) {
+      const t = line.trim();
+      if(!t || t.startsWith("*") || /[A-Za-z]/.test(t)) continue;
+      const parts = t.split(/[\t, ]+/).filter(x => x);
+      if(parts.length < 2) continue;
+      const hz = parseFloat(parts[0]);
+      const db = parseFloat(parts[1]);
+      if(!isNaN(hz) && !isNaN(db) && hz >= 20 && hz <= 20000) {
+        freq.push(Math.round(hz * 10) / 10);
+        spl.push(Math.round(db * 10) / 10);
+      }
+    }
+    
+    if(freq.length === 0) {
+      alert("⚠️ Tidak ada data frekuensi yang dikenali");
+      return;
+    }
+    
+    window.parsedData = { freq, spl };
+    document.getElementById("fileStatus").textContent += ` — ${freq.length} titik data siap`;
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById("btnGen").onclick = () => {
+  const name = document.getElementById("prodName").value.trim();
+  if(!name) return alert("Masukkan nama produk dulu");
+  if(!window.parsedData) return alert("Unggah file .txt hasil REW dulu");
+  
+  resultText = `  "${name}": {
+    "note": "Ditambahkan — ${new Date().toLocaleDateString('id-ID')}",
+    "frequency": [${window.parsedData.freq.join(', ')}],
+    "spl": [${window.parsedData.spl.join(', ')}]
+  }`;
+  
+  document.getElementById("jsonCode").textContent = resultText;
+  document.getElementById("resultBox").style.display = "block";
+};
+
+function copyCode() {
+  navigator.clipboard.writeText(resultText).then(() => {
+    alert("✅ Disalin ke papan klip!");
+  });
+}
+</script>
+</body>
+</html>
+
