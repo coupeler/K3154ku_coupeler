@@ -10,7 +10,7 @@
     body { background: #0f111a; color: #e6e6e6; padding: 20px; max-width: 1200px; margin: 0 auto; }
     h1 { text-align: center; margin-bottom: 10px; font-size: 22px; }
     .info-note { text-align:center; color:#9ca3af; font-size:13px; margin-bottom:20px; }
-    .nav { text-align: right; margin-bottom: 15px; }
+    .nav { text-align: right; margin-bottom: 15px; display: none; }
     .nav a { color: #3b82f6; text-decoration: none; margin-left: 15px; font-size: 14px; }
     .controls { background: #1a1d2b; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
     .ref-row { background: #2b2717; padding: 10px 12px; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -33,15 +33,23 @@
     .legend-line { width: 25px; height: 3px; border-radius: 2px; }
     .hint { color: #9ca3af; font-size: 13px; margin-top: 12px; }
     .fixed-note { color: #f59e0b; font-size: 13px; margin-left: auto; }
+    .login-btn { background: #f59e0b; color: #000; padding: 6px 12px; font-size: 13px; margin-left: 10px; }
   </style>
 </head>
 <body>
 
 <h1>🎧 Perbandingan Respons Frekuensi IEM</h1>
 <p class="info-note">IEF Neutral 2023 = patokan tetap • Bentuk & skala sama dengan squig.link</p>
-<div class="nav">
+
+<div style="text-align:right; margin-bottom:10px;">
+  <button class="login-btn" id="loginBtn" onclick="tampilkanLogin()">🔐 Login Pemilik</button>
+  <span id="statusLogin" style="color:#10b981; display:none;">✅ Sudah Login</span>
+</div>
+
+<div class="nav" id="ownerNav">
   <a href="upload.html">➕ Tambah Data Baru (Pemilik)</a>
   <a href="#" onclick="clearAll(); return false;">🗑 Hapus Semua Perbandingan</a>
+  <a href="#" onclick="keluarAkun(); return false;">🚪 Keluar</a>
 </div>
 
 <div class="controls">
@@ -64,19 +72,56 @@
 </div>
 
 <script>
+// === KONFIGURASI AKUN — UBAH SESUAI KEBUTUHAN ===
+const USERNAME_BENAR = "admin";
+const SANDI_BENAR = "ief2023";
+const OWNER_DOMAIN = window.location.hostname;
+
+// === FUNGSI LOGIN ===
+function cekLogin() {
+  const tersimpan = localStorage.getItem("ief_login");
+  if (!tersimpan) return false;
+  try {
+    const data = JSON.parse(tersimpan);
+    return data.sandi === SANDI_BENAR;
+  } catch { return false; }
+}
+
+function tampilkanLogin() {
+  const nama = prompt("Nama Pengguna:");
+  const sandi = prompt("Kata Sandi:");
+  if (nama === USERNAME_BENAR && sandi === SANDI_BENAR) {
+    localStorage.setItem("ief_login", JSON.stringify({ sandi: SANDI_BENAR }));
+    tampilkanMenuPemilik();
+    alert("✅ Login berhasil! Menu pemilik sekarang terlihat.");
+  } else {
+    alert("❌ Nama pengguna atau sandi salah!");
+  }
+}
+
+function keluarAkun() {
+  localStorage.removeItem("ief_login");
+  document.getElementById("ownerNav").style.display = "none";
+  document.getElementById("loginBtn").style.display = "inline-block";
+  document.getElementById("statusLogin").style.display = "none";
+}
+
+function tampilkanMenuPemilik() {
+  if (cekLogin()) {
+    document.getElementById("ownerNav").style.display = "block";
+    document.getElementById("loginBtn").style.display = "none";
+    document.getElementById("statusLogin").style.display = "inline-block";
+  }
+}
+tampilkanMenuPemilik();
+
+// === GRAFIK ===
 const margin = {top: 20, right: 30, bottom: 40, left: 50};
 const width = 900 - margin.left - margin.right;
 const height = 500 - margin.top - margin.bottom;
 
-// Sumbu X: 20Hz → 20kHz (logaritmik)
-const x = d3.scaleLog()
-  .domain([20, 20000])
-  .range([0, width]);
-
-// Sumbu Y: 45–80 dB — batas atas diubah jadi 80 ✅
-const y = d3.scaleLinear()
-  .domain([45, 80])
-  .range([height, 0]);
+const x = d3.scaleLog().domain([20, 20000]).range([0, width]);
+const y = d3.scaleLinear().domain([45, 80]).range([height, 0]); // ⬅️ Batas atas 80 dB ✅
 
 const svg = d3.select("#chart")
   .attr("width", width + margin.left + margin.right)
@@ -99,7 +144,7 @@ let rowIndex = 0;
 function drawAxes() {
   svg.selectAll(".axis, .grid").remove();
   const xTicks = [30, 50, 80, 150, 300, 500, 800, 1000, 1500, 2000, 3000, 4000, 5000, 8000, 10000, 15000, 20000];
-  const yTicks = [45, 50, 55, 60, 65, 70, 75, 80]; // ✅ sampai 80 dB
+  const yTicks = [45, 50, 55, 60, 65, 70, 75, 80]; // ⬅️ sampai 80 dB ✅
   
   svg.append("g").attr("class", "grid")
     .attr("transform", `translate(0,${height})`)
@@ -139,12 +184,10 @@ function buildSelectOptions() {
 function addSelectRow() {
   rowIndex++;
   const color = colorPalette[(rowIndex - 1) % colorPalette.length];
-  
   const container = document.getElementById("selectContainer");
   const row = document.createElement("div");
   row.className = "select-row";
   row.id = `row-${rowIndex}`;
-  
   row.innerHTML = `
     <span style="width:12px; height:12px; border-radius:3px; background:${color}; flex-shrink:0;"></span>
     <select id="sel-${rowIndex}" style="border-left: 3px solid ${color}; flex:1;">
@@ -153,7 +196,6 @@ function addSelectRow() {
     <button class="del-btn" onclick="removeRow(${rowIndex})">×</button>
   `;
   container.appendChild(row);
-  
   const sel = document.getElementById(`sel-${rowIndex}`);
   sel.addEventListener("change", redrawAll);
   compareRows.push({ id: rowIndex, select: sel, color });
@@ -169,46 +211,26 @@ function removeRow(id) {
 
 function redrawAll() {
   svg.selectAll(".curve-line").remove();
-  
   if (database[REF_NAME]) {
     const refData = database[REF_NAME];
     const refPoints = refData.frequency.map((hz, i) => ({ hz, db: refData.spl[i] }));
-    const refLine = d3.line()
-      .x(p => x(p.hz))
-      .y(p => y(p.db))
-      .curve(d3.curveMonotoneX);
-    
+    const refLine = d3.line().x(p => x(p.hz)).y(p => y(p.db)).curve(d3.curveMonotoneX);
     svg.append("path")
-      .datum(refPoints)
-      .attr("class", "curve-line")
-      .attr("fill", "none")
-      .attr("stroke", REF_COLOR)
-      .attr("stroke-width", 2.5)
-      .attr("stroke-dasharray", "5,4")
-      .attr("d", refLine);
+      .datum(refPoints).attr("class", "curve-line")
+      .attr("fill", "none").attr("stroke", REF_COLOR)
+      .attr("stroke-width", 2.5).attr("stroke-dasharray", "5,4").attr("d", refLine);
   }
-  
   compareRows.forEach(row => {
     const name = row.select.value;
     if (!name || !database[name]) return;
-    
     const data = database[name];
     const points = data.frequency.map((hz, i) => ({ hz, db: data.spl[i] }));
-    const lineGen = d3.line()
-      .x(p => x(p.hz))
-      .y(p => y(p.db))
-      .curve(d3.curveMonotoneX);
-    
+    const lineGen = d3.line().x(p => x(p.hz)).y(p => y(p.db)).curve(d3.curveMonotoneX);
     svg.append("path")
-      .datum(points)
-      .attr("class", "curve-line")
-      .attr("fill", "none")
-      .attr("stroke", row.color)
-      .attr("stroke-width", 2.5)
-      .attr("stroke-dasharray", "none")
-      .attr("d", lineGen);
+      .datum(points).attr("class", "curve-line")
+      .attr("fill", "none").attr("stroke", row.color)
+      .attr("stroke-width", 2.5).attr("stroke-dasharray", "none").attr("d", lineGen);
   });
-  
   updateLegend();
 }
 
@@ -218,7 +240,6 @@ function updateLegend() {
       <span class="legend-line" style="background:${REF_COLOR}; border:2px dashed ${REF_COLOR}; border-width:2px 0;"></span>
       <span>${REF_NAME} <span class="ref-tag">PATOKAN</span></span>
     </div>`;
-  
   compareRows.forEach(row => {
     const name = row.select.value;
     if (!name) return;
@@ -228,7 +249,6 @@ function updateLegend() {
         <span>${name}</span>
       </div>`;
   });
-  
   document.getElementById("legend").innerHTML = html;
 }
 
