@@ -73,9 +73,9 @@ const x = d3.scaleLog()
   .domain([20, 20000])
   .range([0, width]);
 
-// Sumbu Y: 45–70 dB — SAMA PERSIS squig.link
+// Sumbu Y: 45–80 dB — batas atas diubah jadi 80 ✅
 const y = d3.scaleLinear()
-  .domain([45, 70])
+  .domain([45, 80])
   .range([height, 0]);
 
 const svg = d3.select("#chart")
@@ -99,7 +99,7 @@ let rowIndex = 0;
 function drawAxes() {
   svg.selectAll(".axis, .grid").remove();
   const xTicks = [30, 50, 80, 150, 300, 500, 800, 1000, 1500, 2000, 3000, 4000, 5000, 8000, 10000, 15000, 20000];
-  const yTicks = [45, 50, 55, 60, 65, 70];
+  const yTicks = [45, 50, 55, 60, 65, 70, 75, 80]; // ✅ sampai 80 dB
   
   svg.append("g").attr("class", "grid")
     .attr("transform", `translate(0,${height})`)
@@ -170,7 +170,6 @@ function removeRow(id) {
 function redrawAll() {
   svg.selectAll(".curve-line").remove();
   
-  // Gambar IEF Neutral — SELALU ADA
   if (database[REF_NAME]) {
     const refData = database[REF_NAME];
     const refPoints = refData.frequency.map((hz, i) => ({ hz, db: refData.spl[i] }));
@@ -185,11 +184,10 @@ function redrawAll() {
       .attr("fill", "none")
       .attr("stroke", REF_COLOR)
       .attr("stroke-width", 2.5)
-      .attr("stroke-dasharray", "5,4") // Garis putus-putus seperti squig.link
+      .attr("stroke-dasharray", "5,4")
       .attr("d", refLine);
   }
   
-  // Gambar IEM yang dipilih
   compareRows.forEach(row => {
     const name = row.select.value;
     if (!name || !database[name]) return;
