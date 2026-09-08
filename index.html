@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Perbandingan Respons Frekuensi — IEF Neutral 2023 Tetap</title>
+  <title>Perbandingan Respons Frekuensi IEM</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui; }
     body { background: #0f111a; color: #e6e6e6; padding: 20px; max-width: 1200px; margin: 0 auto; }
-    h1 { text-align: center; margin-bottom: 10px; }
+    h1 { text-align: center; margin-bottom: 10px; font-size: 22px; }
     .info-note { text-align:center; color:#9ca3af; font-size:13px; margin-bottom:20px; }
     .nav { text-align: right; margin-bottom: 15px; }
-    .nav a { color: #3b82f6; text-decoration: none; margin-left: 15px; }
+    .nav a { color: #3b82f6; text-decoration: none; margin-left: 15px; font-size: 14px; }
     .controls { background: #1a1d2b; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-    .ref-row { background: #2b2717; padding: 10px 12px; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .ref-row { background: #2b2717; padding: 10px 12px; border-radius: 6px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .select-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
     select, button { padding: 10px 15px; border: none; border-radius: 6px; font-size: 14px; }
     select { background: #2a2f45; color: #fff; min-width: 220px; }
@@ -32,30 +32,31 @@
     .legend-item { display: flex; align-items: center; gap: 6px; font-size: 14px; }
     .legend-line { width: 25px; height: 3px; border-radius: 2px; }
     .hint { color: #9ca3af; font-size: 13px; margin-top: 12px; }
-    .fixed-note { color: #f59e0b; font-size: 13px; }
+    .fixed-note { color: #f59e0b; font-size: 13px; margin-left: auto; }
   </style>
 </head>
 <body>
 
 <h1>🎧 Perbandingan Respons Frekuensi IEM</h1>
-<p class="info-note">IEF Neutral 2023 = patokan tetap • Pilih IEM untuk dibandingkan • Hanya pemilik yang dapat mengubah data</p>
+<p class="info-note">IEF Neutral 2023 = patokan tetap • Bentuk & skala sama dengan squig.link • Hanya pemilik yang dapat mengubah data</p>
 <div class="nav">
   <a href="upload.html">➕ Tambah Data Baru (Pemilik)</a>
   <a href="#" onclick="clearAll(); return false;">🗑 Hapus Semua Perbandingan</a>
 </div>
 
 <div class="controls">
+  <!-- Patokan TETAP — IEF Neutral 2023 -->
   <div class="ref-row">
     <span style="width:14px; height:14px; border-radius:3px; background:#f59e0b;"></span>
     <span class="ref-tag">PATOKAN</span>
     <strong>IEF Neutral 2023</strong>
-    <span class="fixed-note" style="margin-left:auto;">🔒 Tetap</span>
+    <span class="fixed-note">🔒 Tetap</span>
   </div>
 
   <div id="selectContainer"></div>
   
   <button class="add-btn" onclick="addSelectRow()">+ Tambah IEM untuk Dibandingkan</button>
-  <p class="hint">💡 Pilih IEM dari daftar untuk melihat perbandingannya dengan patokan IEF Neutral 2023</p>
+  <p class="hint">💡 Pilih IEM dari daftar — dibandingkan langsung dengan patokan IEF Neutral 2023</p>
 </div>
 
 <div id="chart-container">
@@ -64,12 +65,20 @@
 </div>
 
 <script>
+// === DIMENSI & SKALA SAMA DENGAN SQUIG.LINK ===
 const margin = {top: 20, right: 30, bottom: 40, left: 50};
 const width = 900 - margin.left - margin.right;
 const height = 500 - margin.top - margin.bottom;
 
-const x = d3.scaleLog().domain([20, 20000]).range([0, width]);
-const y = d3.scaleLinear().domain([60, 95]).range([height, 0]);
+// Sumbu X: 20Hz → 20kHz (logaritmik)
+const x = d3.scaleLog()
+  .domain([20, 20000])
+  .range([0, width]);
+
+// Sumbu Y: 45–70 dB — PERSIS skala squig.link!
+const y = d3.scaleLinear()
+  .domain([45, 70])
+  .range([height, 0]);
 
 const svg = d3.select("#chart")
   .attr("width", width + margin.left + margin.right)
@@ -77,6 +86,7 @@ const svg = d3.select("#chart")
   .append("g")
   .attr("transform", `translate(${margin.left},${margin.top})`);
 
+// Warna: IEF = oranye, IEM lain berbeda
 const colorPalette = [
   "#3b82f6", "#ef4444", "#10b981", "#8b5cf6",
   "#ec4899", "#06b6d4", "#84cc16", "#a855f7",
@@ -89,32 +99,39 @@ let database = {};
 let compareRows = [];
 let rowIndex = 0;
 
+// Gambar garis sumbu & kisi-kisi
 function drawAxes() {
   svg.selectAll(".axis, .grid").remove();
-  const xTicks = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+  const xTicks = [30, 50, 100, 200, 500, 1000, 2000, 3000, 5000, 8000, 10000, 15000, 20000];
+  const yTicks = [45, 50, 55, 60, 65, 70];
   
+  // Kisi-kisi mendatar
   svg.append("g").attr("class", "grid")
     .attr("transform", `translate(0,${height})`)
     .call(d3.axisBottom(x).tickValues(xTicks).tickFormat("").tickSize(-height));
   
+  // Kisi-kisi tegak
   svg.append("g").attr("class", "grid")
-    .call(d3.axisLeft(y).tickSize(-width).tickFormat(""));
+    .call(d3.axisLeft(y).tickValues(yTicks).tickSize(-width).tickFormat(""));
   
+  // Sumbu X
   svg.append("g").attr("class", "axis")
     .attr("transform", `translate(0,${height})`)
     .call(d3.axisBottom(x).tickValues(xTicks)
       .tickFormat(d => d >= 1000 ? (d/1000)+"k" : d));
   
+  // Sumbu Y
   svg.append("g").attr("class", "axis")
-    .call(d3.axisLeft(y).ticks(10).tickFormat(d => d + " dB"));
+    .call(d3.axisLeft(y).tickValues(yTicks).tickFormat(d => d + " dB"));
 }
 drawAxes();
 
+// Muat data dari JSON
 async function loadDatabase() {
   try {
     const res = await fetch("data/index.json?t=" + Date.now());
     database = await res.json();
-    addSelectRow();
+    addSelectRow(); // Baris pertama untuk pilih IEM
   } catch (err) {
     document.getElementById("selectContainer").innerHTML = 
       `<p style="color:#ef4444">❌ Gagal memuat data: ${err.message}</p>`;
@@ -122,12 +139,14 @@ async function loadDatabase() {
   }
 }
 
+// Daftar pilihan: TANPA IEF Neutral karena sudah jadi patokan tetap
 function buildSelectOptions() {
   const names = Object.keys(database).filter(n => n !== REF_NAME).sort();
   return `<option value="">-- Pilih IEM --</option>` +
     names.map(name => `<option value="${name}">${name}</option>`).join("");
 }
 
+// Tambah baris pilihan IEM
 function addSelectRow() {
   rowIndex++;
   const color = colorPalette[(rowIndex - 1) % colorPalette.length];
@@ -152,6 +171,7 @@ function addSelectRow() {
   redrawAll();
 }
 
+// Hapus baris pilihan
 function removeRow(id) {
   const row = document.getElementById(`row-${id}`);
   if (row) row.remove();
@@ -159,31 +179,40 @@ function removeRow(id) {
   redrawAll();
 }
 
+// Gambar ulang semua kurva
 function redrawAll() {
   svg.selectAll(".curve-line").remove();
   
+  // === Gambar IEF Neutral DULU — SELALU ADA ===
   if (database[REF_NAME]) {
     const refData = database[REF_NAME];
     const refPoints = refData.frequency.map((hz, i) => ({ hz, db: refData.spl[i] }));
-    const refLine = d3.line().x(p => x(p.hz)).y(p => y(p.db)).curve(d3.curveMonotoneX);
+    const refLine = d3.line()
+      .x(p => x(p.hz))
+      .y(p => y(p.db))
+      .curve(d3.curveMonotoneX);
     
     svg.append("path")
       .datum(refPoints)
       .attr("class", "curve-line")
       .attr("fill", "none")
       .attr("stroke", REF_COLOR)
-      .attr("stroke-width", 3.5)
-      .attr("stroke-dasharray", "5,3")
+      .attr("stroke-width", 2.5)
+      .attr("stroke-dasharray", "5,4") // Garis putus-putus seperti squig.link
       .attr("d", refLine);
   }
   
+  // === Gambar IEM yang dipilih ===
   compareRows.forEach(row => {
     const name = row.select.value;
     if (!name || !database[name]) return;
     
     const data = database[name];
     const points = data.frequency.map((hz, i) => ({ hz, db: data.spl[i] }));
-    const lineGen = d3.line().x(p => x(p.hz)).y(p => y(p.db)).curve(d3.curveMonotoneX);
+    const lineGen = d3.line()
+      .x(p => x(p.hz))
+      .y(p => y(p.db))
+      .curve(d3.curveMonotoneX);
     
     svg.append("path")
       .datum(points)
@@ -198,11 +227,12 @@ function redrawAll() {
   updateLegend();
 }
 
+// Perbarui keterangan
 function updateLegend() {
   let html = `
     <div class="legend-item">
       <span class="legend-line" style="background:${REF_COLOR}; border:2px dashed ${REF_COLOR}; border-width:2px 0;"></span>
-      <span>${REF_NAME} <span class="ref-tag">PATOKAN TETAP</span></span>
+      <span>${REF_NAME} <span class="ref-tag">PATOKAN</span></span>
     </div>`;
   
   compareRows.forEach(row => {
@@ -218,6 +248,7 @@ function updateLegend() {
   document.getElementById("legend").innerHTML = html;
 }
 
+// Bersihkan semua pilihan IEM
 function clearAll() {
   compareRows = [];
   document.getElementById("selectContainer").innerHTML = "";
